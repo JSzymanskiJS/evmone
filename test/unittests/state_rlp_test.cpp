@@ -123,3 +123,69 @@ TEST(state_rlp, encode_custom_struct_list)
     std::vector<CustomStruct> v{{1, {0x02, 0x03}}, {4, {0x05, 0x06}}};
     EXPECT_EQ(rlp::encode(v), "ca c401820203 c404820506"_hex);
 }
+
+TEST(state_rlp, encode_uint64)
+{
+    EXPECT_EQ(rlp::encode(uint64_t{0}), "80"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{1}), "01"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x7f}), "7f"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x80}), "8180"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x81}), "8181"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0xff}), "81ff"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x0100}), "820100"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0xffff}), "82ffff"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x010000}), "83010000"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0xffffff}), "83ffffff"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x01000000}), "8401000000"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0xffffffff}), "84ffffffff"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x0100000000}), "850100000000"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0xffffffffff}), "85ffffffffff"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x010000000000}), "86010000000000"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0xffffffffffff}), "86ffffffffffff"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x01000000000000}), "8701000000000000"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0xffffffffffffff}), "87ffffffffffffff"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0x0100000000000000}), "880100000000000000"_hex);
+    EXPECT_EQ(rlp::encode(uint64_t{0xffffffffffffffff}), "88ffffffffffffffff"_hex);
+}
+
+/// The "custom" implementation of RLP encoding of uint64. It trims leading zero bytes and
+/// manually constructs bytes with variadic-length encoding.
+inline bytes rlp_encode_uint64(uint64_t x)
+{
+    static constexpr uint8_t ShortBase = 0x80;
+    if (x < ShortBase)  // Short form.
+        return bytes{(x != 0) ? static_cast<uint8_t>(x) : ShortBase};
+
+    const auto bit_width = sizeof(x) * 8 - intx::clz(x);  // TODO(c++20): Use std::bit_width.
+    const auto byte_width = (bit_width + 7) / 8;
+    const auto trimmed_x = x << (intx::clz(x) & 0xfffffff8);  // Significant bytes moved to the top.
+
+    uint8_t b[sizeof(x) + 1];
+    b[0] = static_cast<uint8_t>(ShortBase + byte_width);
+    intx::be::unsafe::store(b + 1, trimmed_x);
+    return bytes{b, byte_width + 1};
+}
+
+TEST(state_rlp, encode_uint64_custom)
+{
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0}), "80"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{1}), "01"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x7f}), "7f"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x80}), "8180"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x81}), "8181"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0xff}), "81ff"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x0100}), "820100"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0xffff}), "82ffff"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x010000}), "83010000"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0xffffff}), "83ffffff"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x01000000}), "8401000000"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0xffffffff}), "84ffffffff"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x0100000000}), "850100000000"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0xffffffffff}), "85ffffffffff"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x010000000000}), "86010000000000"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0xffffffffffff}), "86ffffffffffff"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x01000000000000}), "8701000000000000"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0xffffffffffffff}), "87ffffffffffffff"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0x0100000000000000}), "880100000000000000"_hex);
+    EXPECT_EQ(rlp_encode_uint64(uint64_t{0xffffffffffffffff}), "88ffffffffffffffff"_hex);
+}
