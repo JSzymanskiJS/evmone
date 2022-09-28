@@ -189,8 +189,8 @@ static void from_json(const json::json& j, StateTransitionTest& o)
     for (const auto& [rev_name, expectations] : j_t.at("post").items())
     {
         // TODO(c++20): Use emplace_back with aggregate initialization.
-        o.cases.push_back({to_rev(rev_name),
-            expectations.get<std::vector<StateTransitionTest::Case::Expectation>>()});
+        o.cases.emplace_back(to_rev(rev_name),
+            expectations.get<std::vector<StateTransitionTest::Case::Expectation>>());
     }
 }
 
