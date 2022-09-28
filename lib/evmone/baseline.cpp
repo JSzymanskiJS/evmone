@@ -109,7 +109,7 @@ inline evmc_status_code check_requirements(
 
         // Negative cost marks an undefined instruction.
         // This check must be first to produce correct error code.
-        if (INTX_UNLIKELY(gas_cost < 0))
+        if (gas_cost < 0) [[unlikely]]
             return EVMC_UNDEFINED_INSTRUCTION;
     }
 
