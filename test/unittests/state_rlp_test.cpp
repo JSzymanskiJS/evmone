@@ -148,22 +148,28 @@ TEST(state_rlp, encode_uint64)
     EXPECT_EQ(rlp::encode(uint64_t{0xffffffffffffffff}), "88ffffffffffffffff"_hex);
 }
 
+inline bytes to_significant_be_bytes(uint64_t x)
+{
+    const auto bit_width = sizeof(x) * 8 - intx::clz(x);  // TODO(c++20): Use std::bit_width.
+    const auto byte_width = (bit_width + 7) / 8;
+    const auto leading_zero_bytes = intx::clz(x) & ~7u;  // Leading bits rounded down to 8x.
+    const auto trimmed_x = x << leading_zero_bytes;      // Significant bytes moved to the top.
+
+    uint8_t b[sizeof(x)];
+    intx::be::store(b, trimmed_x);
+    return bytes{b, byte_width};
+}
+
 /// The "custom" implementation of RLP encoding of uint64. It trims leading zero bytes and
 /// manually constructs bytes with variadic-length encoding.
 inline bytes rlp_encode_uint64(uint64_t x)
 {
     static constexpr uint8_t ShortBase = 0x80;
-    if (x < ShortBase)  // Short form.
-        return bytes{(x != 0) ? static_cast<uint8_t>(x) : ShortBase};
+    if (x < ShortBase)  // Single-byte encoding.
+        return bytes{(x == 0) ? ShortBase : static_cast<uint8_t>(x)};
 
-    const auto bit_width = sizeof(x) * 8 - intx::clz(x);  // TODO(c++20): Use std::bit_width.
-    const auto byte_width = (bit_width + 7) / 8;
-    const auto trimmed_x = x << (intx::clz(x) & 0xfffffff8);  // Significant bytes moved to the top.
-
-    uint8_t b[sizeof(x) + 1];
-    b[0] = static_cast<uint8_t>(ShortBase + byte_width);
-    intx::be::unsafe::store(b + 1, trimmed_x);
-    return bytes{b, byte_width + 1};
+    const auto b = to_significant_be_bytes(x);
+    return static_cast<uint8_t>(ShortBase + b.size()) + b;
 }
 
 TEST(state_rlp, encode_uint64_custom)
