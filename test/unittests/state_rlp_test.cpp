@@ -152,8 +152,8 @@ inline bytes to_significant_be_bytes(uint64_t x)
 {
     const auto bit_width = sizeof(x) * 8 - intx::clz(x);  // TODO(c++20): Use std::bit_width.
     const auto byte_width = (bit_width + 7) / 8;
-    const auto leading_zero_bytes = intx::clz(x) & ~7u;  // Leading bits rounded down to 8x.
-    const auto trimmed_x = x << leading_zero_bytes;      // Significant bytes moved to the top.
+    const auto leading_zero_bits = intx::clz(x) & ~7u;  // Leading bits rounded down to 8x.
+    const auto trimmed_x = x << leading_zero_bits;      // Significant bytes moved to the top.
 
     uint8_t b[sizeof(x)];
     intx::be::store(b, trimmed_x);
